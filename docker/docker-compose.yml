@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  llama_agent:
+    build:
+      context: ..  # Busca el Dockerfile en ../docker/Dockerfile
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ../src:/app/src     # Monta el código fuente
+      - ../.cache:/root/.cache  # Persistencia de modelos
+      - ../data:/app/data # Datos externos
+    env_file:
+      - ../.env
+    working_dir: /app
+    command: tail -f /dev/null  # Keeps container running
