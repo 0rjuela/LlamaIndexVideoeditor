@@ -1,26 +1,41 @@
-import asyncio
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.llms.openai import OpenAI
+import asyncio
+import os
 
-#Versión caluladora
-# Define a simple calculator tool
+# Create a RAG tool using LlamaIndex
+documents = SimpleDirectoryReader("data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine()
+
+
 def multiply(a: float, b: float) -> float:
     """Useful for multiplying two numbers."""
     return a * b
 
 
-# Create an agent workflow with our calculator tool
+async def search_documents(query: str) -> str:
+    """Useful for answering natural language questions about how to write an essay"""
+    response = await query_engine.aquery(query)
+    return str(response)
+
+
+# Create an enhanced workflow with both tools
 agent = FunctionAgent(
-    tools=[multiply],
+    tools=[multiply, search_documents],
     llm=OpenAI(model="gpt-4o-mini"),
-    system_prompt="You are a helpful assistant that can multiply two numbers.",
+    system_prompt="""You are a helpful assistant that can perform calculations
+    and search through documents to answer questions.""",
 )
 
 
+# Now we can ask questions about the documents or do calculations
 async def main():
-    # Run the agent
-    response = await agent.run("What is 1234 * 4567?")
-    print(str(response))
+    response = await agent.run(
+        "What are the advices on the documents about writting essays, what's 7 * 8?"
+    )
+    print(response)
 
 
 # Run the agent

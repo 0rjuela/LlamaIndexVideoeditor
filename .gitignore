@@ -1,1 +1,7 @@
+.cache/
+data/youtube_videos/
+src/__pycache__/
+src/agents/__pycache__/
+__pycache__/
+*.pyc
 .env
