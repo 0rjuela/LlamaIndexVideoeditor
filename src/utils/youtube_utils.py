@@ -1,8 +1,9 @@
 import yt_dlp
 import os
 import subprocess  
+import json 
 
-def search_youtube(query: str, max_results: int = 5) -> list[str]:
+def search_youtube(query: str, max_results: int = 1) -> list[str]: # Reduced max_results for simplicity
     """Searches YouTube for videos based on the given query.
 
     Args:
@@ -13,23 +14,28 @@ def search_youtube(query: str, max_results: int = 5) -> list[str]:
         A list of YouTube video URLs.
     """
     ydl_opts = {
-        'quiet': True,
-        'extract_flat': 'in_playlist',
+        'quiet': False, # Set to False to see more output
+        'extract_flat': 'in_playlist', # Let's keep this for now
         'entries': f'ytsearch{max_results}:{query}',
         'skip_download': True,
-        'ignoreerrors': True,
+        'ignoreerrors': False, # Keep this as False
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(f'ytsearch{max_results}:{query}', download=False)
-        video_urls = [entry['webpage_url'] for entry in info_dict['entries'] if entry and 'webpage_url' in entry]
-    return video_urls
+        try:
+            info_dict = ydl.extract_info(f'ytsearch{max_results}:{query}', download=False)
+            print(json.dumps(info_dict, indent=4)) # Print the raw info dictionary
+            video_urls = [entry.get('webpage_url') for entry in info_dict.get('entries', []) if entry and entry.get('webpage_url')]
+            return video_urls
+        except Exception as e:
+            print(f"An error occurred during search: {e}")
+            return []
 
 def download_video(url: str, output_path: str = "/app/data/youtube_videos", **kwargs) -> str:
     """Downloads a YouTube video to the specified output path inside the container."""
     os.makedirs(output_path, exist_ok=True)  # Create the directory if it doesn't exist inside the container
     output_template = os.path.join(output_path, '%(id)s.%(ext)s')
     ydl_opts = {
-        "format": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best",
         "outtmpl": output_template,
         "quiet": False,  # Keep quiet False for download progress
         **kwargs
@@ -51,7 +57,7 @@ def download_video(url: str, output_path: str = "/app/data/youtube_videos", **kw
         return None
 
 if __name__ == '__main__':
-    test_url = "https://www.youtube.com/watch?v=cCyYGYyCka4"  # A known LlamaIndex tutorial URL
+    test_url = "https://www.youtube.com/watch?v=ZMsTMuyH7w8&t=7042s"  # A known LlamaIndex tutorial URL
     output_directory = "/app/data/youtube_videos"
     print(f"Attempting to directly download: {test_url} to {output_directory}")
     downloaded_path = download_video(test_url, output_path=output_directory)
