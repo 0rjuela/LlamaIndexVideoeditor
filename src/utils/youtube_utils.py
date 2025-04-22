@@ -30,39 +30,65 @@ def search_youtube(query: str, max_results: int = 1) -> list[str]: # Reduced max
             print(f"An error occurred during search: {e}")
             return []
 
-def download_video(url: str, output_path: str = "/app/data/youtube_videos", **kwargs) -> str:
-    """Downloads a YouTube video to the specified output path inside the container."""
-    os.makedirs(output_path, exist_ok=True)  # Create the directory if it doesn't exist inside the container
-    output_template = os.path.join(output_path, '%(id)s.%(ext)s')
-    ydl_opts = {
-        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best",
-        "outtmpl": output_template,
-        "quiet": False,  # Keep quiet False for download progress
-        **kwargs
-    }
+def download_video(url: str, output_path: str = "/app/data/youtube_videos", **kwargs) -> tuple[str | None, str | None]:
+    """Downloads a YouTube video and its subtitles using subprocess."""
+    os.makedirs(output_path, exist_ok=True)
+    base_filename = url.split('/')[-1]  # Extract video ID from URL
+    video_output_path = os.path.join(output_path, f'{base_filename}.mp4')
+    subtitle_output_path = os.path.join(output_path, f'{base_filename}.en.vtt')
+
+    video_success = False
+    subtitle_success = False
+
     try:
-        print(f"Attempting download of '{url}' to '{output_path}' inside container...")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            print(f"yt-dlp info: {info}")
-            if info and 'id' in info and 'ext' in info:
-                downloaded_file_path = os.path.abspath(os.path.join(output_path, f"{info['id']}.{info['ext']}"))
-                print(f"Download successful, file path inside container: {downloaded_file_path}")
-                return downloaded_file_path
-            else:
-                print("Download might have failed: no 'id' or 'ext' in info.")
-                return None
-    except Exception as e:
-        print(f"Error during download inside container: {e}")
-        return None
+        print(f"Attempting to download video for '{url}' using subprocess...")
+        video_command = [
+            'yt-dlp',
+            '-o', video_output_path,
+            '-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
+            url
+        ]
+        subprocess.run(video_command, check=True, capture_output=True)
+        video_success = True
+        print(f"Video downloaded to: {video_output_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading video: {e.stderr.decode()}")
+    except FileNotFoundError:
+        print("Error: yt-dlp command not found. Is it installed in the container?")
+
+    try:
+        print(f"Attempting to download subtitles for '{url}' using subprocess...")
+        subtitle_command = [
+            'yt-dlp',
+            '--write-sub',
+            '--write-auto-sub',
+            '--sub-lang', 'en',
+            '--sub-format', 'vtt',
+            '-o', subtitle_output_path,
+            '--skip-download',  # Don't download the video again
+            url
+        ]
+        subprocess.run(subtitle_command, check=True, capture_output=True)
+        subtitle_success = True
+        print(f"Subtitles downloaded to: {subtitle_output_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading subtitles: {e.stderr.decode()}")
+    except FileNotFoundError:
+        print("Error: yt-dlp command not found. Is it installed in the container?")
+
+    return video_output_path if video_success else None, subtitle_output_path if subtitle_success else None
 
 if __name__ == '__main__':
-    test_url = "https://www.youtube.com/watch?v=ZMsTMuyH7w8&t=7042s"  # A known LlamaIndex tutorial URL
+    test_url = "https://www.youtube.com/watch?v=jnWaUtS2Fr8"  # Use the same test URL
     output_directory = "/app/data/youtube_videos"
-    print(f"Attempting to directly download: {test_url} to {output_directory}")
-    downloaded_path = download_video(test_url, output_path=output_directory)
-    print(f"Download attempt result: {downloaded_path}")
-    if downloaded_path:
-        print(f"Video downloaded to: {downloaded_path}")
+    print(f"Attempting to directly download: {test_url} to {output_directory} using subprocess")
+    downloaded_paths = download_video(test_url, output_path=output_directory)
+    print(f"Download attempt result: {downloaded_paths}")
+    if downloaded_paths and downloaded_paths[0]:
+        print(f"Video downloaded to: {downloaded_paths[0]}")
+        if downloaded_paths[1]:
+            print(f"Subtitles downloaded to: {downloaded_paths[1]}")
+        else:
+            print("No English subtitles were downloaded.")
     else:
-        print("Direct video download failed.")
+        print("Video download failed.")

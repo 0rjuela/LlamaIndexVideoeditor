@@ -11,7 +11,7 @@ class YouTubeScraper:
 
     def process_video(self, query: str, max_results: int = 1):
         ydl_opts_search = {
-            'quiet': True,
+            'quiet': False,
             'extract_flat': True,
             'max_entries': max_results,
         }
@@ -44,7 +44,7 @@ class YouTubeScraper:
 
 if __name__ == "__main__":
     scraper = YouTubeScraper()
-    test_query = "Best philosophers in history"
+    test_query = "How to build an agent with LamaIndex?"
     result = scraper.process_video(test_query)
     if result:
         print("\nResultado del procesamiento:")
