@@ -1,3 +1,7 @@
 llama-index
 openai
 yt-dlp
+python-dotenv
+pinecone-client
+ffmpeg-python
+pysubs2
